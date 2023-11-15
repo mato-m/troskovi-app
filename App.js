@@ -19,11 +19,13 @@ import Constants from "expo-constants";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function App() {
+  const [sortBy, setSortBy] = useState("Value");
+  const [sortAsc, setSortAsc] = useState(false);
   const [exInList, setExInList] = useState([]);
   const [selectedCat, setSelectedCat] = useState(null);
   const scrollViewRef = useRef(null);
-  const [selectedType, setSelectedType] = useState("Both");
-  const [selectedTimeType, setSelectedTimeType] = useState("Daily");
+  const [selectedType, setSelectedType] = useState("Oboje");
+  const [selectedTimeType, setSelectedTimeType] = useState("Dnevno");
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [date, setDate] = useState(new Date());
   const [dateAdd, setDateAdd] = useState(new Date());
@@ -33,62 +35,66 @@ export default function App() {
   const [showAddTimePicker, setShowAddTimePicker] = useState(false);
   const [newEntryName, setNewEntryName] = useState("");
   const [newEntryPrice, setNewEntryPrice] = useState("");
-  const [selectedEntryType, setSelectedEntryType] = useState("Expense");
+  const [selectedEntryType, setSelectedEntryType] = useState("Trošak");
   const [fontsLoaded] = useFonts({
     Lato_400Regular,
   });
   const expensePickerItems = [
-    { name: "Entertainment", icon: "film", color: "#cc3300" },
-    { name: "Utilities", icon: "bolt", color: "#cc9900" },
-    { name: "Rent", icon: "home", color: "#330099" },
-    { name: "Transportation", icon: "car", color: "#0033cc" },
-    { name: "Travel", icon: "plane", color: "#006633" },
-    { name: "Education", icon: "book", color: "#cc3300" },
-    { name: "Clothing", icon: "tshirt", color: "#660099" },
-    { name: "Health", icon: "heartbeat", color: "#990033" },
-    { name: "Other expenses", icon: "ellipsis-h", color: "#cc3333" },
-    { name: "Groceries", icon: "shopping-cart", color: "#800000" },
-    { name: "Dining", icon: "utensils", color: "#808000" },
-    { name: "Personal Care", icon: "user", color: "#008080" },
-    { name: "Electronics", icon: "laptop", color: "#008000" },
-    { name: "Furniture", icon: "couch", color: "#8000ff" },
-    { name: "Insurance", icon: "shield-alt", color: "#ff0000" },
-    { name: "Loans", icon: "hand-holding-usd", color: "#00ff00" },
-    { name: "Taxes", icon: "file-invoice-dollar", color: "#0000ff" },
-    { name: "Savings", icon: "piggy-bank", color: "#ff00ff" },
+    { name: "Zabava", icon: "film", color: "#cc3300" },
+    { name: "Komunalije", icon: "bolt", color: "#cc9900" },
+    { name: "Stanarina", icon: "home", color: "#330099" },
+    { name: "Transport", icon: "car", color: "#0033cc" },
+    { name: "Putovanja", icon: "plane", color: "#006633" },
+    { name: "Obrazovanje", icon: "book", color: "#cc3300" },
+    { name: "Odjeća", icon: "tshirt", color: "#660099" },
+    { name: "Zdravlje", icon: "heartbeat", color: "#990033" },
+    { name: "Ostali troškovi", icon: "ellipsis-h", color: "#cc3333" },
+    { name: "Namirnice", icon: "shopping-cart", color: "#800000" },
+    { name: "Ishrana", icon: "utensils", color: "#808000" },
+    { name: "Lična higijena", icon: "user", color: "#008080" },
+    { name: "Elektronika", icon: "laptop", color: "#008000" },
+    { name: "Namještaj", icon: "couch", color: "#8000ff" },
+    { name: "Osiguranje", icon: "shield-alt", color: "#ff0000" },
+    { name: "Krediti", icon: "hand-holding-usd", color: "#00ff00" },
+    { name: "Porezi", icon: "file-invoice-dollar", color: "#0000ff" },
+    { name: "Štednja", icon: "piggy-bank", color: "#ff00ff" },
   ].sort((a, b) => {
-    if (a.name.startsWith("Other")) return 1;
-    if (b.name.startsWith("Other")) return -1;
+    if (a.name.startsWith("Ostali")) return 1;
+    if (b.name.startsWith("Ostali")) return -1;
     return a.name.localeCompare(b.name);
   });
   const [selectedCategory, setSelectedCategory] = useState(
     expensePickerItems[0].name
   );
   const incomePickerItems = [
-    { name: "Salary", icon: "money-bill-wave", color: "#006600" },
-    { name: "Investments", icon: "chart-line", color: "#cc9900" },
-    { name: "Freelance", icon: "laptop-code", color: "#330066" },
-    { name: "Rental", icon: "home", color: "#cc3300" },
-    { name: "Other income", icon: "ellipsis-h", color: "#003300" },
-    { name: "Dividends", icon: "file-invoice-dollar", color: "#800000" },
-    { name: "Interest", icon: "percent", color: "#808000" },
-    { name: "Gifts", icon: "gift", color: "#008080" },
-    { name: "Sale of Property", icon: "hand-holding-usd", color: "#800080" },
-    { name: "Royalties", icon: "file-contract", color: "#008000" },
-    { name: "Retirement", icon: "piggy-bank", color: "#8000ff" },
-    { name: "Alimony", icon: "handshake", color: "#ff0000" },
-    { name: "Child Support", icon: "child", color: "#006600" },
-    { name: "Social Security", icon: "universal-access", color: "#0000ff" },
-    { name: "Unemployment Benefits", icon: "user-clock", color: "#ff00ff" },
+    { name: "Plata", icon: "money-bill-wave", color: "#006600" },
+    { name: "Investicije", icon: "chart-line", color: "#cc9900" },
+    { name: "Freelancing", icon: "laptop-code", color: "#330066" },
+    { name: "Iznajmljivanje", icon: "home", color: "#cc3300" },
+    { name: "Ostali prihodi", icon: "ellipsis-h", color: "#003300" },
+    { name: "Dividende", icon: "file-invoice-dollar", color: "#800000" },
+    { name: "Kamate", icon: "percent", color: "#808000" },
+    { name: "Pokloni", icon: "gift", color: "#008080" },
+    { name: "Prodaja imovine", icon: "hand-holding-usd", color: "#800080" },
+    { name: "Honorari", icon: "file-contract", color: "#008000" },
+    { name: "Penzijski fond", icon: "piggy-bank", color: "#8000ff" },
+    { name: "Alimentacija", icon: "handshake", color: "#ff0000" },
+    { name: "Dodatak za djecu", icon: "child", color: "#006600" },
+    {
+      name: "Socijalno osiguranje",
+      icon: "universal-access",
+      color: "#0000ff",
+    },
+    { name: "Naknada za nezaposlenost", icon: "user-clock", color: "#ff00ff" },
   ].sort((a, b) => {
-    if (a.name.startsWith("Other")) return 1;
-    if (b.name.startsWith("Other")) return -1;
+    if (a.name.startsWith("Ostali")) return 1;
+    if (b.name.startsWith("Ostali")) return -1;
     return a.name.localeCompare(b.name);
   });
   const [itemsToShow, setItemsToShow] = useState(
     [...expensePickerItems, ...incomePickerItems].sort((a, b) => {
-      if (a.name.startsWith("Other")) return 1;
-      if (b.name.startsWith("Other")) return -1;
+      if (a.name.startsWith("Ostali")) return 1;
+      if (b.name.startsWith("Ostali")) return -1;
       return a.name.localeCompare(b.name);
     })
   );
@@ -99,8 +105,8 @@ export default function App() {
         if (storedData) {
           setExInList(JSON.parse(storedData));
         }
-      } catch (error) {
-        console.error("Error loading data from AsyncStorage:", error);
+      } catch (e) {
+        console.log("Greška pri učitavanju podataka");
       }
     };
 
@@ -128,12 +134,12 @@ export default function App() {
     );
 
     if (newEntryName.trim().length === 0) {
-      alert("Please enter a valid name.");
+      alert("Naziv nije unešen.");
       return;
     }
     const priceValue = parseFloat(newEntryPrice);
     if (isNaN(priceValue) || priceValue <= 0) {
-      alert("Amount should be a number above 0");
+      alert("Količina mora biti izražena brojem većim od 0.");
       return;
     }
     const newEntry = {
@@ -145,22 +151,31 @@ export default function App() {
       time: combinedDateTime,
     };
     setExInList([...exInList, newEntry]);
-    Alert.alert("Success", selectedEntryType + " added successfully");
+    Alert.alert(
+      "Uspješno",
+      selectedEntryType +
+        ' "' +
+        newEntryName +
+        '" uspješno dodat u kategoriju "' +
+        selectedCategory +
+        '".'
+    );
     setAddModalVisible(false);
     setNewEntryName("");
     setNewEntryPrice("");
-    setSelectedEntryType("Expense");
-    setDateAdd(Date.now());
+    setSelectedEntryType("Trošak");
+    setDateAdd(new Date());
+    setTimeAdd(new Date());
     setSelectedCategory(expensePickerItems[0].name);
   };
 
   const filteredData = exInList
     .filter((v) => {
-      return selectedType == "Both"
+      return selectedType == "Oboje"
         ? v
-        : selectedType == "Expenses"
-        ? v.type == "Expense"
-        : v.type == "Income";
+        : selectedType == "Troškovi"
+        ? v.type == "Trošak"
+        : v.type == "Prihod";
     })
     .filter((v) => {
       return selectedCat ? v.category == selectedCat : v;
@@ -170,39 +185,47 @@ export default function App() {
       const selectedDate = moment(date);
 
       return (
-        (selectedTimeType === "Daily" &&
+        (selectedTimeType === "Dnevno" &&
           expenseDate.isSame(selectedDate, "day")) ||
-        (selectedTimeType === "Monthly" &&
+        (selectedTimeType === "Mjesečno" &&
           expenseDate.isSame(selectedDate, "month")) ||
-        (selectedTimeType === "Yearly" &&
+        (selectedTimeType === "Godišnje" &&
           expenseDate.isSame(selectedDate, "year"))
       );
     })
     .sort((a, b) => {
-      return moment(b.time, "DD.MM.YYYY HH:mm:ss").diff(
-        moment(a.time, "DD.MM.YYYY HH:mm:ss")
-      );
+      if (sortBy === "Time") {
+        const timeA = new Date(a.time);
+        const timeB = new Date(b.time);
+        return sortAsc ? timeA - timeB : timeB - timeA;
+      } else if (sortBy === "Name") {
+        return sortAsc
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      } else if (sortBy === "Value") {
+        return sortAsc ? a.price - b.price : b.price - a.price;
+      }
     });
-  const totalExpenses = filteredData
-    .filter((v) => v.type === "Expense")
+  const totalTroškovi = filteredData
+    .filter((v) => v.type === "Trošak")
     .reduce((acc, v) => acc + v.price, 0);
 
-  const totalIncome = filteredData
-    .filter((v) => v.type === "Income")
+  const totalPrihod = filteredData
+    .filter((v) => v.type === "Prihod")
     .reduce((acc, v) => acc + v.price, 0);
-  const balance = totalIncome - totalExpenses;
+  const balance = totalPrihod - totalTroškovi;
 
   const handleSelection = (type) => {
     setSelectedType(type);
     setSelectedCat(null);
     setItemsToShow(
-      type == "Both"
+      type == "Oboje"
         ? [...expensePickerItems, ...incomePickerItems].sort((a, b) => {
-            if (a.name.startsWith("Other")) return 1;
-            if (b.name.startsWith("Other")) return -1;
+            if (a.name.startsWith("Ostali")) return 1;
+            if (b.name.startsWith("Ostali")) return -1;
             return a.name.localeCompare(b.name);
           })
-        : type == "Expenses"
+        : type == "Troškovi"
         ? expensePickerItems
         : incomePickerItems
     );
@@ -224,16 +247,18 @@ export default function App() {
   };
 
   const onAddDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || dateAdd;
     setShowAddDatePicker(false);
-    if (selectedDate) {
-      setDateAdd(selectedDate);
+    if (event.type !== "dismissed") {
+      setDateAdd(currentDate);
     }
   };
 
   const onAddTimeChange = (event, selectedDate) => {
+    const currentTime = selectedDate || timeAdd;
     setShowAddTimePicker(false);
-    if (selectedDate) {
-      setTimeAdd(selectedDate);
+    if (event.type !== "dismissed") {
+      setTimeAdd(currentTime);
     }
   };
 
@@ -252,7 +277,7 @@ export default function App() {
         <Text
           style={{ color: "#fff", fontSize: 20, fontFamily: "Lato_400Regular" }}
         >
-          Select date
+          Izaberi datum
         </Text>
       </TouchableOpacity>
       {showDatePicker && (
@@ -272,11 +297,11 @@ export default function App() {
           fontSize: 24,
         }}
       >
-        {selectedTimeType == "Daily"
+        {selectedTimeType == "Dnevno"
           ? moment(date).format("DD.MM.YYYY.")
-          : selectedTimeType == "Monthly"
-          ? moment(date).format("MMMM YYYY")
-          : moment(date).format("YYYY")}
+          : selectedTimeType == "Mjesečno"
+          ? moment(date).format("MM. YYYY.")
+          : moment(date).format("YYYY.")}
       </Text>
 
       <View
@@ -296,54 +321,56 @@ export default function App() {
           style={{
             ...styles.selectionBtn,
             backgroundColor:
-              selectedTimeType === "Daily" ? "#121212" : undefined,
+              selectedTimeType === "Dnevno" ? "#121212" : undefined,
           }}
-          onPress={() => handleTimeSelection("Daily")}
+          onPress={() => handleTimeSelection("Dnevno")}
         >
           <Text
             style={{
-              color: selectedTimeType === "Daily" ? "#fff" : "#000",
+              color: selectedTimeType === "Dnevno" ? "#fff" : "#000",
               fontFamily: "Lato_400Regular",
               fontSize: 18,
             }}
           >
-            Daily
+            Dnevno
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={{
             ...styles.selectionBtn,
             backgroundColor:
-              selectedTimeType === "Monthly" ? "#121212" : undefined,
+              selectedTimeType === "Mjesečno" ? "#121212" : undefined,
+            borderLeftWidth: 1,
+            borderRightWidth: 1,
           }}
-          onPress={() => handleTimeSelection("Monthly")}
+          onPress={() => handleTimeSelection("Mjesečno")}
         >
           <Text
             style={{
-              color: selectedTimeType === "Monthly" ? "#fff" : "#000",
+              color: selectedTimeType === "Mjesečno" ? "#fff" : "#000",
               fontFamily: "Lato_400Regular",
               fontSize: 18,
             }}
           >
-            Monthly
+            Mjesečno
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={{
             ...styles.selectionBtn,
             backgroundColor:
-              selectedTimeType === "Yearly" ? "#121212" : undefined,
+              selectedTimeType === "Godišnje" ? "#121212" : undefined,
           }}
-          onPress={() => handleTimeSelection("Yearly")}
+          onPress={() => handleTimeSelection("Godišnje")}
         >
           <Text
             style={{
-              color: selectedTimeType === "Yearly" ? "#fff" : "#000",
+              color: selectedTimeType === "Godišnje" ? "#fff" : "#000",
               fontFamily: "Lato_400Regular",
               fontSize: 18,
             }}
           >
-            Yearly
+            Godišnje
           </Text>
         </TouchableOpacity>
       </View>
@@ -362,60 +389,108 @@ export default function App() {
         <TouchableOpacity
           style={{
             ...styles.selectionBtn,
-            backgroundColor: selectedType === "Both" ? "#121212" : undefined,
+            backgroundColor: selectedType === "Oboje" ? "#121212" : undefined,
           }}
-          onPress={() => handleSelection("Both")}
+          onPress={() => handleSelection("Oboje")}
         >
           <Text
             style={{
-              color: selectedType === "Both" ? "#fff" : "#000",
+              color: selectedType === "Oboje" ? "#fff" : "#000",
 
               fontFamily: "Lato_400Regular",
               fontSize: 18,
             }}
           >
-            Both
+            Oboje
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={{
             ...styles.selectionBtn,
             backgroundColor:
-              selectedType === "Expenses" ? "#cc3300" : undefined,
+              selectedType === "Troškovi" ? "#cc3300" : undefined,
+            borderLeftWidth: 1,
+            borderRightWidth: 1,
           }}
-          onPress={() => handleSelection("Expenses")}
+          onPress={() => handleSelection("Troškovi")}
         >
           <Text
             style={{
               fontFamily: "Lato_400Regular",
               fontSize: 18,
               textShadowColor:
-                selectedType !== "Expenses" ? undefined : "black",
-              textShadowRadius: selectedType !== "Expenses" ? undefined : 10,
-              color: selectedType !== "Expenses" ? undefined : "white",
+                selectedType !== "Troškovi" ? undefined : "black",
+              textShadowRadius: selectedType !== "Troškovi" ? undefined : 10,
+              color: selectedType !== "Troškovi" ? undefined : "white",
             }}
           >
-            Expenses
+            Troškovi
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={{
             ...styles.selectionBtn,
-            backgroundColor: selectedType === "Income" ? "#006600" : undefined,
+            backgroundColor: selectedType === "Prihod" ? "#006600" : undefined,
           }}
-          onPress={() => handleSelection("Income")}
+          onPress={() => handleSelection("Prihod")}
         >
           <Text
             style={{
               fontFamily: "Lato_400Regular",
               fontSize: 18,
-              textShadowColor: selectedType !== "Income" ? undefined : "black",
-              textShadowRadius: selectedType !== "Income" ? undefined : 10,
-              color: selectedType !== "Income" ? undefined : "white",
+              textShadowColor: selectedType !== "Prihod" ? undefined : "black",
+              textShadowRadius: selectedType !== "Prihod" ? undefined : 10,
+              color: selectedType !== "Prihod" ? undefined : "white",
             }}
           >
-            Income
+            Prihod
           </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "center",
+          borderColor: "#000",
+          borderWidth: 1,
+          borderRadius: 20,
+          width: 100,
+          overflow: "hidden",
+          marginTop: 7,
+        }}
+      >
+        <TouchableOpacity
+          style={{
+            ...styles.selectionBtn,
+          }}
+          onPress={() => {
+            switch (sortBy) {
+              case "Value":
+                setSortBy("Time");
+                return;
+              case "Time":
+                setSortBy("Name");
+                return;
+              case "Name":
+                setSortBy("Value");
+                return;
+            }
+          }}
+        >
+          {sortBy === "Value" && <FontAwesome5 name="euro-sign" size={18} />}
+          {sortBy === "Time" && <FontAwesome5 name="calendar" size={18} />}
+          {sortBy === "Name" && <FontAwesome5 name="font" size={18} />}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            ...styles.selectionBtn,
+            borderLeftWidth: 1,
+          }}
+          onPress={() => setSortAsc(!sortAsc)}
+        >
+          <FontAwesome5 name={sortAsc ? "arrow-down" : "arrow-up"} size={18} />
         </TouchableOpacity>
       </View>
 
@@ -475,6 +550,7 @@ export default function App() {
                 textShadowRadius: 5,
                 textAlign: "center",
                 fontSize: 14,
+                paddingHorizontal: 10,
                 fontFamily: "Lato_400Regular",
               }}
             >
@@ -484,20 +560,14 @@ export default function App() {
         ))}
       </ScrollView>
       {filteredData && filteredData.length > 0 ? (
-        <ScrollView
-          style={{
-            width: "95%",
-            maxHeight: 250,
-            marginVertical: 10,
-          }}
-        >
+        <ScrollView style={{ flex: 2, width: "95%", marginVertical: 10 }}>
           {filteredData
             .filter((v) => (selectedCat ? v.category == selectedCat : v))
             .map((v) => (
               <View
                 key={v.id}
                 style={{
-                  backgroundColor: v.type == "Expense" ? "#cc3300" : "#006600",
+                  backgroundColor: v.type == "Trošak" ? "#cc3300" : "#006600",
                   width: "100%",
                   padding: 20,
                   marginVertical: 5,
@@ -547,7 +617,7 @@ export default function App() {
                       }}
                     >
                       {moment(v.time).format(
-                        selectedTimeType === "Daily" ? "HH:mm" : "DD.MM. HH:mm"
+                        selectedTimeType === "Dnevno" ? "HH:mm" : "DD.MM. HH:mm"
                       )}
                     </Text>
                   </View>
@@ -555,22 +625,27 @@ export default function App() {
                 <TouchableOpacity
                   onPress={() => {
                     Alert.alert(
-                      "Confirm deletion",
-                      "Are you sure you want to delete " +
+                      "Potvrdi brisanje",
+                      "Da li ste sigurni da želite da uklonite " +
+                        v.type.toLowerCase() +
+                        ' "' +
                         v.name +
-                        " from the list",
+                        '"?',
                       [
                         {
-                          text: "No",
+                          text: "Ne",
                         },
                         {
-                          text: "Yes",
+                          text: "Da",
                           onPress: () => {
                             const updatedList = exInList.filter(
                               (entry) => entry.id !== v.id
                             );
                             setExInList(updatedList);
-                            Alert.alert("Success", "Deleted successfully");
+                            Alert.alert(
+                              "Uspješno",
+                              v.type + ' "' + v.name + '" uspješno uklonjen.'
+                            );
                           },
                         },
                       ],
@@ -599,53 +674,98 @@ export default function App() {
               textAlign: "center",
             }}
           >
-            No{" "}
-            {selectedType === "Both"
-              ? "data"
-              : selectedType === "Expenses"
-              ? "expense data"
-              : "income data"}{" "}
-            found for{"\n"}{" "}
-            {selectedTimeType == "Daily"
+            Nema
+            {selectedType === "Oboje"
+              ? " podataka"
+              : selectedType === "Troškovi"
+              ? " podataka o troškovima"
+              : " podataka o prihodima"}{" "}
+            za{"\n"}{" "}
+            {selectedTimeType == "Dnevno"
               ? moment(date).format("DD.MM.YYYY.")
-              : selectedTimeType == "Monthly"
-              ? moment(date).format("MMMM YYYY")
-              : moment(date).format("YYYY")}
-            {selectedCat && " in " + selectedCat + " category"}
+              : selectedTimeType == "Mjesečno"
+              ? moment(date).format("MM. YYYY.")
+              : moment(date).format("YYYY.")}
+            {selectedCat && ' u kategoriji "' + selectedCat + '"'}
           </Text>
         </View>
       )}
       {filteredData.length > 0 && (
-        <View>
-          {(selectedType == "Income" || selectedType == "Both") && (
-            <Text
-              style={{
-                fontFamily: "Lato_400Regular",
-                fontSize: 18,
-              }}
-            >
-              Total income: {totalIncome}€
-            </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            paddingVertical: 10,
+            justifyContent:
+              selectedType == "Oboje" ? "space-between" : "center",
+            width: "90%",
+            alignItems: "center",
+          }}
+        >
+          {(selectedType == "Prihod" || selectedType == "Oboje") && (
+            <View>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 26,
+                  textAlign: "center",
+                }}
+              >
+                {totalPrihod}€
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 18,
+                  textAlign: "center",
+                }}
+              >
+                Prihod
+              </Text>
+            </View>
           )}
-          {(selectedType == "Expenses" || selectedType == "Both") && (
-            <Text
-              style={{
-                fontFamily: "Lato_400Regular",
-                fontSize: 18,
-              }}
-            >
-              Total expenses: {totalExpenses}€
-            </Text>
+          {(selectedType == "Troškovi" || selectedType == "Oboje") && (
+            <View>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 26,
+                  textAlign: "center",
+                }}
+              >
+                {totalTroškovi}€
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 18,
+                  textAlign: "center",
+                }}
+              >
+                Trošak
+              </Text>
+            </View>
           )}
-          {selectedType == "Both" && (
-            <Text
-              style={{
-                fontFamily: "Lato_400Regular",
-                fontSize: 18,
-              }}
-            >
-              Balance: {balance}€
-            </Text>
+          {selectedType == "Oboje" && (
+            <View>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 26,
+                  textAlign: "center",
+                }}
+              >
+                {balance}€
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 18,
+                  textAlign: "center",
+                }}
+              >
+                Balans
+              </Text>
+            </View>
           )}
         </View>
       )}
@@ -665,7 +785,7 @@ export default function App() {
             <TextInput
               maxLength={20}
               autoFocus
-              placeholder="Name"
+              placeholder="Naziv"
               style={{
                 fontSize: 16,
                 borderWidth: 1,
@@ -677,14 +797,13 @@ export default function App() {
               value={newEntryName}
               onChangeText={(text) => setNewEntryName(text)}
             />
-
             <TextInput
               maxLength={10}
-              placeholder="Amount"
+              placeholder="Količina"
               style={{
                 fontSize: 16,
                 width: "100%",
-                marginTop: 10,
+                marginTop: 5,
                 borderRadius: 8,
                 borderWidth: 1,
                 padding: 10,
@@ -694,130 +813,154 @@ export default function App() {
               onChangeText={(text) => setNewEntryPrice(text)}
               keyboardType="numeric"
             />
-            <Picker
-              style={{ width: "100%" }}
-              mode="dropdown"
-              placeholder="Type"
-              selectedValue={selectedEntryType}
-              onValueChange={(itemValue) => {
-                setSelectedEntryType(itemValue);
-                setSelectedCategory(
-                  itemValue == "Expense"
-                    ? expensePickerItems[0].name
-                    : incomePickerItems[0].name
-                );
+            <View
+              style={{
+                borderWidth: 1,
+                borderRadius: 10,
+                width: "100%",
+                marginTop: 5,
               }}
             >
-              <Picker.Item key="Expense" label="Expense" value="Expense" />
-              <Picker.Item key="Income" label="Income" value="Income" />
-            </Picker>
-            {selectedEntryType == "Expense" ? (
               <Picker
+                style={{
+                  width: "100%",
+                }}
                 mode="dropdown"
-                style={{ width: "100%" }}
-                placeholder="Category"
-                selectedValue={selectedCategory}
+                placeholder="Type"
+                selectedValue={selectedEntryType}
                 onValueChange={(itemValue) => {
-                  setSelectedCategory(itemValue);
+                  setSelectedEntryType(itemValue);
+                  setSelectedCategory(
+                    itemValue == "Trošak"
+                      ? expensePickerItems[0].name
+                      : incomePickerItems[0].name
+                  );
                 }}
               >
-                {expensePickerItems.map((v) => (
-                  <Picker.Item key={v.name} label={v.name} value={v.name} />
-                ))}
+                <Picker.Item key="Trošak" label="Trošak" value="Trošak" />
+                <Picker.Item key="Prihod" label="Prihod" value="Prihod" />
               </Picker>
-            ) : (
-              <Picker
-                style={{ width: "100%" }}
-                placeholder="Category"
-                selectedValue={selectedCategory}
-                onValueChange={(itemValue) => setSelectedCategory(itemValue)}
-              >
-                {incomePickerItems.map((v) => (
-                  <Picker.Item key={v.name} label={v.name} value={v.name} />
-                ))}
-              </Picker>
-            )}
-
-            <Text
+            </View>
+            <View
               style={{
-                fontSize: 20,
-                marginVertical: 10,
-                fontFamily: "Lato_400Regular",
+                borderWidth: 1,
+                borderRadius: 10,
+                width: "100%",
+                marginVertical: 5,
               }}
             >
-              {moment(
-                `${moment(dateAdd).format("YYYY-MM-DD")} ${moment(
-                  timeAdd
-                ).format("HH:mm:ss")}`,
-                "YYYY-MM-DD HH:mm:ss"
-              ).format("DD.MM.YYYY HH:mm")}
-            </Text>
-            {showAddDatePicker && (
+              {selectedEntryType == "Trošak" ? (
+                <Picker
+                  mode="dropdown"
+                  style={{ width: "100%" }}
+                  placeholder="Kategorija"
+                  selectedValue={selectedCategory}
+                  onValueChange={(itemValue) => {
+                    setSelectedCategory(itemValue);
+                  }}
+                >
+                  {expensePickerItems.map((v) => (
+                    <Picker.Item key={v.name} label={v.name} value={v.name} />
+                  ))}
+                </Picker>
+              ) : (
+                <Picker
+                  style={{ width: "100%" }}
+                  placeholder="Kategorija"
+                  selectedValue={selectedCategory}
+                  onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+                >
+                  {incomePickerItems.map((v) => (
+                    <Picker.Item key={v.name} label={v.name} value={v.name} />
+                  ))}
+                </Picker>
+              )}
+            </View>
+            {showAddDatePicker && dateAdd && (
               <DateTimePicker
-                value={date}
+                value={dateAdd}
                 mode="date"
                 is24Hour={true}
                 display="spinner"
                 onChange={onAddDateChange}
               />
             )}
-
-            <TouchableOpacity
-              onPress={() => {
-                setShowAddDatePicker(true);
-              }}
+            <View
               style={{
-                paddingVertical: 10,
-                paddingHorizontal: 40,
+                flex: 1,
+                flexGrow: 0,
+                flexDirection: "row",
+                justifyContent: "center",
+                width: "90%",
+                borderRadius: 30,
                 borderWidth: 1,
-                borderRadius: 20,
-                marginTop: 5,
-                backgroundColor: "#121212",
+                overflow: "hidden",
+                marginTop: 15,
               }}
             >
-              <Text
+              <TouchableOpacity
+                onPress={() => {
+                  setShowAddDatePicker(true);
+                }}
                 style={{
-                  color: "#fff",
-                  fontSize: 20,
-                  fontFamily: "Lato_400Regular",
+                  paddingVertical: 10,
+                  paddingHorizontal: 20,
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
                 }}
               >
-                Edit date
-              </Text>
-            </TouchableOpacity>
-            {showAddTimePicker && (
-              <DateTimePicker
-                value={date}
-                mode="time"
-                is24Hour={true}
-                display="default"
-                onChange={onAddTimeChange}
-              />
-            )}
+                <Text
+                  style={{
+                    fontSize: 20,
+                    fontFamily: "Lato_400Regular",
+                    textAlign: "center",
+                    marginRight: 10,
+                  }}
+                >
+                  {moment(
+                    `${moment(dateAdd).format("YYYY-MM-DD")}`,
+                    "YYYY-MM-DD"
+                  ).format("DD.MM.YYYY")}
+                </Text>
+              </TouchableOpacity>
+              {showAddTimePicker && (
+                <DateTimePicker
+                  value={timeAdd}
+                  mode="time"
+                  is24Hour={true}
+                  display="default"
+                  onChange={onAddTimeChange}
+                />
+              )}
 
-            <TouchableOpacity
-              onPress={() => {
-                setShowAddTimePicker(true);
-              }}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 40,
-                borderWidth: 1,
-                borderRadius: 20,
-                marginTop: 5,
-                backgroundColor: "#121212",
-              }}
-            >
-              <Text
+              <TouchableOpacity
+                onPress={() => {
+                  setShowAddTimePicker(true);
+                }}
                 style={{
-                  color: "#fff",
-                  fontSize: 20,
-                  fontFamily: "Lato_400Regular",
+                  paddingVertical: 10,
+                  paddingHorizontal: 20,
+                  borderLeftWidth: 1,
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
                 }}
               >
-                Edit time
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={{
+                    fontSize: 20,
+                    fontFamily: "Lato_400Regular",
+                    marginRight: 10,
+                  }}
+                >
+                  {moment(`${moment(timeAdd).format("HH:mm")}`, "HH:mm").format(
+                    "HH:mm"
+                  )}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text>Klikni datum / vrijeme da ga promijeniš</Text>
             <TouchableOpacity
               style={{
                 paddingVertical: 10,
@@ -841,7 +984,7 @@ export default function App() {
                   fontFamily: "Lato_400Regular",
                 }}
               >
-                Add
+                Dodaj
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -866,7 +1009,7 @@ export default function App() {
                   fontFamily: "Lato_400Regular",
                 }}
               >
-                Cancel
+                Otkaži
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -886,12 +1029,12 @@ export default function App() {
           backgroundColor: "#121212",
         }}
         onPress={() => {
-          setDateAdd(Date.now());
-          setTimeAdd(Date.now());
+          setDateAdd(new Date());
+          setTimeAdd(new Date());
           setAddModalVisible(true);
         }}
       >
-        <Text style={{ fontSize: 20, color: "#fff" }}>Add</Text>
+        <Text style={{ fontSize: 20, color: "#fff" }}>Dodaj</Text>
       </TouchableOpacity>
     </View>
   );
@@ -906,7 +1049,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   container: {
-    marginTop: Constants.statusBarHeight + 20,
+    marginTop: Constants.statusBarHeight + 40,
     flex: 1,
     alignItems: "center",
     justifyContent: "flex-start",
