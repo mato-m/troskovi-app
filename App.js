@@ -21,6 +21,7 @@ import Constants from "expo-constants";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function App() {
+  const [scanned, setScanned] = useState(false);
   const [invoiceArray, setInvoiceArray] = useState(null);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
@@ -91,8 +92,8 @@ export default function App() {
   ];
   const [itemsToShow, setItemsToShow] = useState(
     [...expensePickerItems, ...incomePickerItems].sort((a, b) => {
-      if (a.name.startsWith("Ostali")) return -1;
-      if (b.name.startsWith("Ostali")) return 1;
+      if (a.name.startsWith("Ostali")) return 1;
+      if (b.name.startsWith("Ostali")) return -1;
       return a.name.localeCompare(b.name);
     })
   );
@@ -141,12 +142,12 @@ export default function App() {
     );
 
     if (newEntryName.trim().length === 0) {
-      alert("Naziv nije unešen.");
+      Alert.alert("Greška", "Naziv nije unešen.");
       return;
     }
     const priceValue = parseFloat(newEntryPrice);
     if (isNaN(priceValue) || priceValue <= 0) {
-      alert("Količina mora biti izražena brojem većim od 0.");
+      Alert.alert("Greška", "Količina mora biti izražena brojem većim od 0.");
       return;
     }
     const newEntry = {
@@ -233,8 +234,16 @@ export default function App() {
             return a.name.localeCompare(b.name);
           })
         : type == "Troškovi"
-        ? expensePickerItems
-        : incomePickerItems
+        ? expensePickerItems.sort((a, b) => {
+            if (a.name.startsWith("Ostali")) return 1;
+            if (b.name.startsWith("Ostali")) return -1;
+            return a.name.localeCompare(b.name);
+          })
+        : incomePickerItems.sort((a, b) => {
+            if (a.name.startsWith("Ostali")) return 1;
+            if (b.name.startsWith("Ostali")) return -1;
+            return a.name.localeCompare(b.name);
+          })
     );
     scrollViewRef.current?.scrollTo({ x: 0, animated: true });
   };
@@ -300,6 +309,7 @@ export default function App() {
     );
   };
   const handleBarCodeScanned = ({ type, data }) => {
+    setScanned(true);
     const url = new URL(data);
     const params = {};
     if (url.hostname === "mapr.tax.gov.me") {
@@ -323,7 +333,6 @@ export default function App() {
       )
         .then((response) => response.json())
         .then((json) => {
-          console.log(json);
           const dateTime = moment(json.dateTimeCreated);
 
           setInvoiceDateAdd(dateTime.toDate());
@@ -334,7 +343,7 @@ export default function App() {
           const dateToMoment = moment(dateStr, "DD.MM.YYYY HH:mm:ss");
           const newArray = json.items.map((item) => ({
             id: Crypto.randomUUID(),
-            name: item.name,
+            name: item.name.trim(),
             price: item.priceAfterVat,
             category: expensePickerItems[0].name,
             type: "Trošak",
@@ -343,13 +352,16 @@ export default function App() {
           setInvoiceArray(newArray);
         })
 
-        .catch(() => {
-          alert("Greška pri učitavanju podataka sa servera.");
+        .catch((e) => {
+          Alert.alert("Greška", "Greška pri učitavanju podataka sa servera.");
+        })
+        .finally(() => {
+          setScannerVisible(false);
         });
     } else {
-      alert("QR kod nije validan.");
+      Alert.alert("Greška", "QR kod nije validan.");
+      setScannerVisible(false);
     }
-    setScannerVisible(false);
   };
 
   return invoiceArray && invoiceArray.length > 0 ? (
@@ -369,6 +381,18 @@ export default function App() {
         }}
       >
         Proizvodi sa računa
+      </Text>
+      <Text
+        style={{
+          fontSize: 18,
+          textAlign: "center",
+          marginBottom: 20,
+          fontFamily: "Lato_400Regular",
+        }}
+      >
+        {"Ukupno: " +
+          invoiceArray.reduce((sum, item) => sum + item.price, 0).toFixed(2) +
+          "€"}
       </Text>
       {showInvoiceDatePicker && (
         <DateTimePicker
@@ -407,12 +431,12 @@ export default function App() {
             }}
           >
             <TextInput
-              defaultValue={item.name}
+              defaultValue={item.name.trim()}
               onChangeText={(e) => {
                 setInvoiceArray((prevArray) =>
                   prevArray.map((invoiceItem) =>
                     invoiceItem.id === item.id
-                      ? { ...invoiceItem, name: e }
+                      ? { ...invoiceItem, name: e.trim() }
                       : invoiceItem
                   )
                 );
@@ -431,17 +455,20 @@ export default function App() {
               }}
             />
             <TextInput
-              inputMode="decimal"
               keyboardType="numeric"
+              inputMode="numeric"
               defaultValue={item.price.toString()}
               onChangeText={(e) => {
-                setInvoiceArray((prevArray) =>
-                  prevArray.map((invoiceItem) =>
-                    invoiceItem.id === item.id
-                      ? { ...invoiceItem, price: e }
-                      : invoiceItem
-                  )
-                );
+                const formattedValue = e.replace(",", ".");
+                if (!isNaN(formattedValue)) {
+                  setInvoiceArray((prevArray) =>
+                    prevArray.map((invoiceItem) =>
+                      invoiceItem.id === item.id
+                        ? { ...invoiceItem, price: formattedValue }
+                        : invoiceItem
+                    )
+                  );
+                }
               }}
               style={{
                 color: "#fff",
@@ -603,8 +630,30 @@ export default function App() {
               ...item,
               price: parseFloat(parseFloat(item.price).toFixed(2)),
             }));
-            setExInList([...exInList, ...roundedInvoiceArray]);
-            setInvoiceArray(null);
+
+            // Data validation checks
+            const isValidNumber = roundedInvoiceArray.every((item) => {
+              const price = parseFloat(item.price);
+              return !isNaN(price) && price > 0;
+            });
+
+            const isValidName = roundedInvoiceArray.every((item) => {
+              const name = item.name;
+              return name && name.trim().length > 0;
+            });
+
+            if (isValidNumber && isValidName) {
+              setExInList([...exInList, ...roundedInvoiceArray]);
+              Alert.alert("Uspješno", "Proizvodi sa računa uspješno dodati.");
+              setInvoiceArray(null);
+            } else if (!isValidName) {
+              Alert.alert("Greška", "Naziv proizvoda nije unešen.");
+            } else if (!isValidNumber) {
+              Alert.alert(
+                "Greška",
+                "Vrijednosti proizvoda moraju biti veće od 0."
+              );
+            }
           }}
         >
           <Text
@@ -655,7 +704,7 @@ export default function App() {
       }}
     >
       <BarCodeScanner
-        onBarCodeScanned={handleBarCodeScanned}
+        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
         style={{ width: "100%", flexGrow: 1, aspectRatio: 1 }}
       />
       <TouchableOpacity
@@ -993,7 +1042,7 @@ export default function App() {
                   fontFamily: "Lato_400Regular",
                 }}
               >
-                {calculateTotalValue(item.name)}€
+                {calculateTotalValue(item.name).toFixed(2)}€
               </Text>
             )}
           </TouchableOpacity>
@@ -1029,7 +1078,7 @@ export default function App() {
                         color: "#fff",
                       }}
                     >
-                      {v.price}€
+                      {v.price.toFixed(2)}€
                     </Text>
                     <Text
                       style={{
@@ -1150,7 +1199,7 @@ export default function App() {
                   textAlign: "center",
                 }}
               >
-                {totalPrihod}€
+                {totalPrihod.toFixed(2)}€
               </Text>
               <Text
                 style={{
@@ -1172,7 +1221,7 @@ export default function App() {
                   textAlign: "center",
                 }}
               >
-                {totalTroškovi}€
+                {totalTroškovi.toFixed(2)}€
               </Text>
               <Text
                 style={{
@@ -1194,7 +1243,7 @@ export default function App() {
                   textAlign: "center",
                 }}
               >
-                {balance}€
+                {balance.toFixed(2)}€
               </Text>
               <Text
                 style={{
@@ -1250,9 +1299,12 @@ export default function App() {
                 fontFamily: "Lato_400Regular",
               }}
               value={newEntryPrice}
-              onChangeText={(text) => setNewEntryPrice(text)}
-              keyboardType="numeric"
-              inputMode="decimal"
+              onChangeText={(text) => {
+                const formattedText = text.replace(",", ".");
+
+                setNewEntryPrice(formattedText);
+              }}
+              inputMode="numeric"
             />
             <View
               style={{
@@ -1414,7 +1466,8 @@ export default function App() {
                 paddingHorizontal: 30,
                 borderWidth: 1,
                 borderRadius: 20,
-                marginVertical: 10,
+                marginTop: 20,
+                marginBottom: 10,
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
@@ -1484,7 +1537,11 @@ export default function App() {
             const getBarCodeScannerPermissions = async () => {
               const { status } = await BarCodeScanner.requestPermissionsAsync();
               status === "denied" &&
-                alert("Aplikacija nema dozvolu za korišćenje kamere.");
+                Alert.alert(
+                  "Greška",
+                  "Aplikacija nema dozvolu za korišćenje kamere."
+                );
+              setScanned(false);
               setHasPermission(status === "granted");
               setScannerVisible(status === "granted");
             };

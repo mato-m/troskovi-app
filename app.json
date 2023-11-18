@@ -2,7 +2,7 @@
   "expo": {
     "name": "Troškovi",
     "slug": "troskovi",
-    "version": "1.3.1",
+    "version": "1.3.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -27,7 +27,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.mato.xo.troskovi",
-      "versionCode": 6
+      "versionCode": 7
     },
     "web": {
       "favicon": "./assets/icon.png"
