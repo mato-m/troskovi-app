@@ -1,3 +1,4 @@
+import "react-native-url-polyfill/auto";
 import { StatusBar } from "expo-status-bar";
 import {
   Alert,
@@ -9,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { BarCodeScanner } from "expo-barcode-scanner";
 import * as Crypto from "expo-crypto";
 import { Picker } from "@react-native-picker/picker";
 import { useFonts, Lato_400Regular } from "@expo-google-fonts/lato";
@@ -19,6 +21,9 @@ import Constants from "expo-constants";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function App() {
+  const [invoiceArray, setInvoiceArray] = useState(null);
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const [hasPermission, setHasPermission] = useState(null);
   const [sortBy, setSortBy] = useState("Value");
   const [sortAsc, setSortAsc] = useState(false);
   const [exInList, setExInList] = useState([]);
@@ -36,68 +41,70 @@ export default function App() {
   const [newEntryName, setNewEntryName] = useState("");
   const [newEntryPrice, setNewEntryPrice] = useState("");
   const [selectedEntryType, setSelectedEntryType] = useState("Trošak");
+
+  const [showInvoiceDatePicker, setShowInvoiceDatePicker] = useState(false);
+  const [showInvoiceTimePicker, setShowInvoiceTimePicker] = useState(false);
+  const [invoiceDateAdd, setInvoiceDateAdd] = useState(new Date());
+  const [invoiceTimeAdd, setInvoiceTimeAdd] = useState(new Date());
   const [fontsLoaded] = useFonts({
     Lato_400Regular,
   });
   const expensePickerItems = [
-    { name: "Zabava", icon: "film", color: "#cc3300" },
-    { name: "Komunalije", icon: "bolt", color: "#cc9900" },
-    { name: "Stanarina", icon: "home", color: "#330099" },
-    { name: "Transport", icon: "car", color: "#0033cc" },
-    { name: "Putovanja", icon: "plane", color: "#006633" },
-    { name: "Obrazovanje", icon: "book", color: "#cc3300" },
-    { name: "Odjeća", icon: "tshirt", color: "#660099" },
-    { name: "Zdravlje", icon: "heartbeat", color: "#990033" },
-    { name: "Ostali troškovi", icon: "ellipsis-h", color: "#cc3333" },
-    { name: "Namirnice", icon: "shopping-cart", color: "#800000" },
-    { name: "Ishrana", icon: "utensils", color: "#808000" },
-    { name: "Lična higijena", icon: "user", color: "#008080" },
-    { name: "Elektronika", icon: "laptop", color: "#008000" },
-    { name: "Namještaj", icon: "couch", color: "#8000ff" },
-    { name: "Osiguranje", icon: "shield-alt", color: "#ff0000" },
-    { name: "Krediti", icon: "hand-holding-usd", color: "#00ff00" },
-    { name: "Porezi", icon: "file-invoice-dollar", color: "#0000ff" },
-    { name: "Štednja", icon: "piggy-bank", color: "#ff00ff" },
-  ].sort((a, b) => {
-    if (a.name.startsWith("Ostali")) return 1;
-    if (b.name.startsWith("Ostali")) return -1;
-    return a.name.localeCompare(b.name);
-  });
+    { name: "Ostali troškovi", icon: "ellipsis-h" },
+    { name: "Elektronika", icon: "laptop" },
+    { name: "Ishrana", icon: "utensils" },
+    { name: "Krediti", icon: "hand-holding-usd" },
+    { name: "Komunalije", icon: "bolt" },
+    { name: "Lična higijena", icon: "user" },
+    { name: "Namirnice", icon: "shopping-cart" },
+    { name: "Namještaj", icon: "couch" },
+    { name: "Obrazovanje", icon: "book" },
+    { name: "Odjeća", icon: "tshirt" },
+    { name: "Porezi", icon: "file-invoice-dollar" },
+    { name: "Putovanja", icon: "plane" },
+    { name: "Stanarina", icon: "home" },
+    { name: "Transport", icon: "car" },
+    { name: "Zabava", icon: "film" },
+    { name: "Zdravlje", icon: "heartbeat" },
+  ];
   const [selectedCategory, setSelectedCategory] = useState(
     expensePickerItems[0].name
   );
   const incomePickerItems = [
-    { name: "Plata", icon: "money-bill-wave", color: "#006600" },
-    { name: "Investicije", icon: "chart-line", color: "#cc9900" },
-    { name: "Freelancing", icon: "laptop-code", color: "#330066" },
-    { name: "Iznajmljivanje", icon: "home", color: "#cc3300" },
-    { name: "Ostali prihodi", icon: "ellipsis-h", color: "#003300" },
-    { name: "Dividende", icon: "file-invoice-dollar", color: "#800000" },
-    { name: "Kamate", icon: "percent", color: "#808000" },
-    { name: "Pokloni", icon: "gift", color: "#008080" },
-    { name: "Prodaja imovine", icon: "hand-holding-usd", color: "#800080" },
-    { name: "Honorari", icon: "file-contract", color: "#008000" },
-    { name: "Penzijski fond", icon: "piggy-bank", color: "#8000ff" },
-    { name: "Alimentacija", icon: "handshake", color: "#ff0000" },
-    { name: "Dodatak za djecu", icon: "child", color: "#006600" },
+    { name: "Ostali prihodi", icon: "ellipsis-h" },
+    { name: "Dividende", icon: "file-invoice-dollar" },
+    { name: "Honorari", icon: "file-contract" },
+    { name: "Investicije", icon: "chart-line" },
+    { name: "Naknada", icon: "user-clock" },
     {
-      name: "Socijalno osiguranje",
+      name: "Osiguranje",
       icon: "universal-access",
-      color: "#0000ff",
     },
-    { name: "Naknada za nezaposlenost", icon: "user-clock", color: "#ff00ff" },
-  ].sort((a, b) => {
-    if (a.name.startsWith("Ostali")) return 1;
-    if (b.name.startsWith("Ostali")) return -1;
-    return a.name.localeCompare(b.name);
-  });
+    { name: "Penzija", icon: "piggy-bank" },
+    { name: "Plata", icon: "money-bill-wave" },
+    { name: "Pokloni", icon: "gift", color: "#0B6623" },
+    {
+      name: "Stipendije",
+      icon: "graduation-cap",
+      color: "#004D40",
+    },
+  ];
   const [itemsToShow, setItemsToShow] = useState(
     [...expensePickerItems, ...incomePickerItems].sort((a, b) => {
-      if (a.name.startsWith("Ostali")) return 1;
-      if (b.name.startsWith("Ostali")) return -1;
+      if (a.name.startsWith("Ostali")) return -1;
+      if (b.name.startsWith("Ostali")) return 1;
       return a.name.localeCompare(b.name);
     })
   );
+  function calculateTotalValue(v) {
+    sum = 0;
+    for (let i of filteredData) {
+      if (i.category == v) {
+        sum += i.price;
+      }
+    }
+    return sum;
+  }
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -127,10 +134,10 @@ export default function App() {
   }
   const handleAddEntry = () => {
     const combinedDateTime = moment(
-      `${moment(dateAdd).format("YYYY-MM-DD")} ${moment(timeAdd).format(
+      `${moment(dateAdd).format("DD.MM.YYYY.")} ${moment(timeAdd).format(
         "HH:mm:ss"
       )}`,
-      "YYYY-MM-DD HH:mm:ss"
+      "DD.MM.YYYY. HH:mm:ss"
     );
 
     if (newEntryName.trim().length === 0) {
@@ -261,8 +268,422 @@ export default function App() {
       setTimeAdd(currentTime);
     }
   };
+  const onInvoiceDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || date;
+    setShowInvoiceDatePicker(false);
+    setInvoiceDateAdd(currentDate);
+    const dateStr = `${moment(currentDate).format("DD.MM.YYYY")} ${moment(
+      invoiceTimeAdd
+    ).format("HH:mm:ss")}`;
+    const dateToMoment = moment(dateStr, "DD.MM.YYYY HH:mm:ss");
+    setInvoiceArray((prevArray) =>
+      prevArray.map((invoiceItem) => ({
+        ...invoiceItem,
+        time: dateToMoment,
+      }))
+    );
+  };
 
-  return (
+  const onInvoiceTimeChange = (event, selectedTime) => {
+    const currentTime = selectedTime || time;
+    setShowInvoiceTimePicker(false);
+    setInvoiceTimeAdd(currentTime);
+    const dateStr = `${moment(invoiceDateAdd).format("DD.MM.YYYY")} ${moment(
+      currentTime
+    ).format("HH:mm:ss")}`;
+    const dateToMoment = moment(dateStr, "DD.MM.YYYY HH:mm:ss");
+    setInvoiceArray((prevArray) =>
+      prevArray.map((invoiceItem) => ({
+        ...invoiceItem,
+        time: dateToMoment,
+      }))
+    );
+  };
+  const handleBarCodeScanned = ({ type, data }) => {
+    const url = new URL(data);
+    const params = {};
+    if (url.hostname === "mapr.tax.gov.me") {
+      const fragment = url.toString().split("#/verify?")[1];
+      const pairs = fragment.split("&");
+      pairs.forEach((pair) => {
+        const [key, value] = pair.split("=");
+        params[key] = decodeURIComponent(value);
+      });
+      const iic = params["iic"];
+      const tin = params["tin"];
+      const crtd = params["crtd"];
+      fetch(
+        "https://mapr.tax.gov.me/ic/api/verifyInvoice?iic=" +
+          iic +
+          "&tin=" +
+          tin +
+          "&dateTimeCreated=" +
+          crtd,
+        { method: "POST" }
+      )
+        .then((response) => response.json())
+        .then((json) => {
+          console.log(json);
+          const dateTime = moment(json.dateTimeCreated);
+
+          setInvoiceDateAdd(dateTime.toDate());
+          setInvoiceTimeAdd(dateTime.toDate());
+          const dateStr = `${moment(dateTime.toDate()).format(
+            "DD.MM.YYYY"
+          )} ${moment(dateTime).format("HH:mm:ss")}`;
+          const dateToMoment = moment(dateStr, "DD.MM.YYYY HH:mm:ss");
+          const newArray = json.items.map((item) => ({
+            id: Crypto.randomUUID(),
+            name: item.name,
+            price: item.priceAfterVat,
+            category: expensePickerItems[0].name,
+            type: "Trošak",
+            time: dateToMoment,
+          }));
+          setInvoiceArray(newArray);
+        })
+
+        .catch(() => {
+          alert("Greška pri učitavanju podataka sa servera.");
+        });
+    } else {
+      alert("QR kod nije validan.");
+    }
+    setScannerVisible(false);
+  };
+
+  return invoiceArray && invoiceArray.length > 0 ? (
+    <View
+      style={{
+        ...styles.container,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 24,
+          textAlign: "center",
+          marginBottom: 20,
+          fontFamily: "Lato_400Regular",
+        }}
+      >
+        Proizvodi sa računa
+      </Text>
+      {showInvoiceDatePicker && (
+        <DateTimePicker
+          value={invoiceDateAdd}
+          mode="date"
+          display="default"
+          onChange={onInvoiceDateChange}
+        />
+      )}
+
+      {showInvoiceTimePicker && (
+        <DateTimePicker
+          value={invoiceTimeAdd}
+          mode="time"
+          display="default"
+          onChange={onInvoiceTimeChange}
+        />
+      )}
+      <ScrollView
+        style={{
+          width: "90%",
+        }}
+      >
+        {invoiceArray.map((item) => (
+          <View
+            key={item.id}
+            style={{
+              marginVertical: 10,
+              backgroundColor: "#cc3300",
+              width: "100%",
+              justifyContent: "center",
+              alignItems: "center",
+              paddingVertical: 20,
+              borderWidth: 1,
+              borderRadius: 20,
+            }}
+          >
+            <TextInput
+              defaultValue={item.name}
+              onChangeText={(e) => {
+                setInvoiceArray((prevArray) =>
+                  prevArray.map((invoiceItem) =>
+                    invoiceItem.id === item.id
+                      ? { ...invoiceItem, name: e }
+                      : invoiceItem
+                  )
+                );
+              }}
+              style={{
+                color: "#fff",
+                borderWidth: 1,
+                width: "80%",
+                borderColor: "#fff",
+                borderRadius: 20,
+                fontSize: 18,
+                paddingLeft: 10,
+                paddingVertical: 10,
+                textAlign: "left",
+                fontFamily: "Lato_400Regular",
+              }}
+            />
+            <TextInput
+              inputMode="decimal"
+              keyboardType="numeric"
+              defaultValue={item.price.toString()}
+              onChangeText={(e) => {
+                setInvoiceArray((prevArray) =>
+                  prevArray.map((invoiceItem) =>
+                    invoiceItem.id === item.id
+                      ? { ...invoiceItem, price: e }
+                      : invoiceItem
+                  )
+                );
+              }}
+              style={{
+                color: "#fff",
+                borderWidth: 1,
+                width: "80%",
+                borderColor: "#fff",
+                borderRadius: 20,
+                fontSize: 18,
+                paddingLeft: 10,
+                paddingVertical: 10,
+                textAlign: "left",
+                fontFamily: "Lato_400Regular",
+                marginTop: 10,
+              }}
+            />
+            <View
+              style={{
+                width: "80%",
+                borderWidth: 1,
+                borderColor: "#fff",
+                borderRadius: 20,
+                marginTop: 10,
+              }}
+            >
+              <Picker
+                onValueChange={(value) => {
+                  setInvoiceArray((prevArray) =>
+                    prevArray.map((invoiceItem) =>
+                      invoiceItem.id === item.id
+                        ? { ...invoiceItem, category: value }
+                        : invoiceItem
+                    )
+                  );
+                }}
+                selectedValue={item.category}
+                mode="dropdown"
+                placeholder="Kategorija"
+                style={{
+                  color: "#fff",
+                  width: "100%",
+                }}
+              >
+                {expensePickerItems.map((v) => (
+                  <Picker.Item key={v.name} label={v.name} value={v.name} />
+                ))}
+              </Picker>
+            </View>
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#fff",
+                paddingVertical: 10,
+                paddingHorizontal: 20,
+                borderRadius: 20,
+                borderWidth: 1,
+                width: "40%",
+                marginTop: 20,
+                alignSelf: "center",
+                marginBottom: 10,
+              }}
+              onPress={() => {
+                setInvoiceArray(invoiceArray.filter((v) => v.id !== item.id));
+              }}
+            >
+              <Text
+                style={{
+                  color: "#000",
+                  fontSize: 18,
+                  textAlign: "center",
+                  fontFamily: "Lato_400Regular",
+                }}
+              >
+                Izbriši
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+      </ScrollView>
+      <View
+        style={{
+          height: 60,
+          flexDirection: "row",
+          justifyContent: "center",
+          borderRadius: 30,
+          borderWidth: 1,
+          overflow: "hidden",
+          backgroundColor: "#fff",
+          marginTop: 15,
+          paddingHorizontal: 10,
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => {
+            setShowInvoiceDatePicker(true);
+          }}
+          style={{
+            flexDirection: "row",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingVertical: 20,
+            paddingHorizontal: 10,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 16,
+              fontFamily: "Lato_400Regular",
+              textAlign: "center",
+              marginRight: 10,
+            }}
+          >
+            {moment(invoiceDateAdd).format("DD.MM.YYYY.")}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            setShowInvoiceTimePicker(true);
+          }}
+          style={{
+            borderLeftWidth: 1,
+            flexDirection: "row",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 10,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 16,
+              fontFamily: "Lato_400Regular",
+              marginLeft: 10,
+            }}
+          >
+            {moment(invoiceTimeAdd).format("HH:mm")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-around",
+          width: "100%",
+          marginBottom: 20,
+        }}
+      >
+        <TouchableOpacity
+          style={{
+            backgroundColor: "#fff",
+            paddingVertical: 10,
+            paddingHorizontal: 20,
+            borderRadius: 20,
+            borderWidth: 1,
+            width: "40%",
+            marginTop: 20,
+            alignSelf: "center",
+            marginBottom: 10,
+          }}
+          onPress={() => {
+            const roundedInvoiceArray = invoiceArray.map((item) => ({
+              ...item,
+              price: parseFloat(parseFloat(item.price).toFixed(2)),
+            }));
+            setExInList([...exInList, ...roundedInvoiceArray]);
+            setInvoiceArray(null);
+          }}
+        >
+          <Text
+            style={{
+              textAlign: "center",
+              fontFamily: "Lato_400Regular",
+              fontSize: 18,
+            }}
+          >
+            Dodaj
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            backgroundColor: "#fff",
+            paddingVertical: 10,
+            paddingHorizontal: 20,
+            borderRadius: 20,
+            borderWidth: 1,
+            width: "40%",
+            marginTop: 20,
+            alignSelf: "center",
+            marginBottom: 10,
+          }}
+          onPress={() => {
+            setInvoiceArray(null);
+          }}
+        >
+          <Text
+            style={{
+              textAlign: "center",
+              fontFamily: "Lato_400Regular",
+              fontSize: 18,
+            }}
+          >
+            Otkaži
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  ) : scannerVisible ? (
+    <View
+      style={{
+        flex: 1,
+        width: "100%",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <BarCodeScanner
+        onBarCodeScanned={handleBarCodeScanned}
+        style={{ width: "100%", flexGrow: 1, aspectRatio: 1 }}
+      />
+      <TouchableOpacity
+        style={{
+          position: "absolute",
+          bottom: 20,
+          backgroundColor: "black",
+          paddingVertical: 10,
+          paddingHorizontal: 20,
+          borderRadius: 20,
+          width: "90%",
+          height: 50,
+        }}
+        onPress={() => setScannerVisible(false)}
+      >
+        <Text
+          style={{
+            color: "#fff",
+            fontSize: 24,
+            textAlign: "center",
+            fontFamily: "Lato_400Regular",
+          }}
+        >
+          Zatvori kameru
+        </Text>
+      </TouchableOpacity>
+    </View>
+  ) : (
     <View style={styles.container}>
       <TouchableOpacity
         onPress={showDatepicker}
@@ -506,7 +927,11 @@ export default function App() {
             }
             key={item.name}
             style={{
-              backgroundColor: item.color,
+              backgroundColor: expensePickerItems.some(
+                (expenseItem) => expenseItem.name === item.name
+              )
+                ? "#cc3300"
+                : "#006600",
               marginHorizontal: 10,
               height: 110,
               flexGrow: 1,
@@ -556,6 +981,21 @@ export default function App() {
             >
               {item.name}
             </Text>
+            {!selectedCat && (
+              <Text
+                style={{
+                  color: "white",
+                  textShadowColor: "black",
+                  textShadowRadius: 5,
+                  textAlign: "center",
+                  fontSize: 14,
+                  paddingHorizontal: 10,
+                  fontFamily: "Lato_400Regular",
+                }}
+              >
+                {calculateTotalValue(item.name)}€
+              </Text>
+            )}
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -799,7 +1239,7 @@ export default function App() {
             />
             <TextInput
               maxLength={10}
-              placeholder="Količina"
+              placeholder="Vrijednost"
               style={{
                 fontSize: 16,
                 width: "100%",
@@ -812,6 +1252,7 @@ export default function App() {
               value={newEntryPrice}
               onChangeText={(text) => setNewEntryPrice(text)}
               keyboardType="numeric"
+              inputMode="decimal"
             />
             <View
               style={{
@@ -919,8 +1360,8 @@ export default function App() {
                   }}
                 >
                   {moment(
-                    `${moment(dateAdd).format("YYYY-MM-DD")}`,
-                    "YYYY-MM-DD"
+                    `${moment(dateAdd).format("DD.MM.YYYY.")}`,
+                    "DD.MM.YYYY."
                   ).format("DD.MM.YYYY")}
                 </Text>
               </TouchableOpacity>
@@ -960,7 +1401,13 @@ export default function App() {
                 </Text>
               </TouchableOpacity>
             </View>
-            <Text>Klikni datum / vrijeme da ga promijeniš</Text>
+            <Text
+              style={{
+                fontFamily: "Lato_400Regular",
+              }}
+            >
+              Klikni datum / vrijeme da ga promijeniš
+            </Text>
             <TouchableOpacity
               style={{
                 paddingVertical: 10,
@@ -1015,27 +1462,76 @@ export default function App() {
           </ScrollView>
         </View>
       </Modal>
-      <TouchableOpacity
+      <View
         style={{
-          paddingVertical: 10,
-          paddingHorizontal: 30,
-          borderWidth: 1,
-          borderRadius: 20,
-          marginVertical: 20,
-          width: "90%",
-          display: "flex",
+          flexDirection: "row",
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: "#121212",
-        }}
-        onPress={() => {
-          setDateAdd(new Date());
-          setTimeAdd(new Date());
-          setAddModalVisible(true);
         }}
       >
-        <Text style={{ fontSize: 20, color: "#fff" }}>Dodaj</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            backgroundColor: "black",
+            padding: 10,
+            marginLeft: 10,
+            borderRadius: 50,
+            flexDirection: "row",
+            fontSize: 18,
+            paddingVertical: 10,
+            paddingHorizontal: 30,
+          }}
+          onPress={() => {
+            const getBarCodeScannerPermissions = async () => {
+              const { status } = await BarCodeScanner.requestPermissionsAsync();
+              status === "denied" &&
+                alert("Aplikacija nema dozvolu za korišćenje kamere.");
+              setHasPermission(status === "granted");
+              setScannerVisible(status === "granted");
+            };
+
+            getBarCodeScannerPermissions();
+          }}
+        >
+          <Text
+            style={{
+              color: "white",
+              fontFamily: "Lato_400Regular",
+              fontSize: 18,
+            }}
+          >
+            Skeniraj QR kod
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            paddingVertical: 10,
+            paddingHorizontal: 30,
+            borderRadius: 20,
+            marginVertical: 20,
+            marginHorizontal: 20,
+            flex: 1,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "#121212",
+          }}
+          onPress={() => {
+            setDateAdd(new Date());
+            setTimeAdd(new Date());
+            setAddModalVisible(true);
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 20,
+              color: "#fff",
+              fontFamily: "Lato_400Regular",
+            }}
+          >
+            Dodaj
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -1049,7 +1545,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   container: {
-    marginTop: Constants.statusBarHeight + 40,
+    marginTop: Constants.statusBarHeight + 20,
     flex: 1,
     alignItems: "center",
     justifyContent: "flex-start",
